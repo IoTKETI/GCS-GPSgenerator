@@ -1,4 +1,3 @@
-var ip = require("ip");
 var fs = require('fs');
 
 var conf = {};
