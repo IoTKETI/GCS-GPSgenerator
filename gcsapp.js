@@ -59,6 +59,7 @@ function createMAVLinkData(sys_id, boot_time, data) {
   } catch (ex) {
     console.log('[ERROR] ' + ex);
   }
+  send_aggr_to_Mobius(my_cnt_name, globalpositionint_msg.toString('hex'), 1000);
 
   params = {}
   params.target_system = sys_id;
@@ -84,6 +85,7 @@ function createMAVLinkData(sys_id, boot_time, data) {
   } catch (ex) {
     console.log('[ERROR] ' + ex);
   }
+  send_aggr_to_Mobius(my_cnt_name, gpsrawint_msg.toString('hex'), 1000);
 
   // params = {}
   // params.target_system = sys_id;
@@ -125,6 +127,7 @@ function createMAVLinkData(sys_id, boot_time, data) {
   } catch (ex) {
     console.log('[ERROR] ' + ex);
   }
+  send_aggr_to_Mobius(my_cnt_name, heartbeat_msg.toString('hex'), 1000);
 }
 
 function mavlinkGenerateMessage(src_sys_id, src_comp_id, type, params) {
@@ -196,4 +199,25 @@ function sendMQTTData() {
   if (gpsrawint_msg !== '') {
     mqtt_client.publish(my_cnt_name, Buffer.from(gpsrawint_msg, 'hex'));
   }
+}
+
+var aggr_content = {};
+
+function send_aggr_to_Mobius(topic, content_each, gap) {
+    if (aggr_content.hasOwnProperty(topic)) {
+        var timestamp = moment().format('YYYY-MM-DDTHH:mm:ssSSS');
+        aggr_content[topic][timestamp] = content_each;
+    } else {
+        aggr_content[topic] = {};
+        timestamp = moment().format('YYYY-MM-DDTHH:mm:ssSSS');
+        aggr_content[topic][timestamp] = content_each;
+
+        setTimeout(function () {
+            sh_adn.crtci(topic + '?rcn=0', 0, aggr_content[topic], null, function () {
+
+            });
+
+            delete aggr_content[topic];
+        }, gap, topic);
+    }
 }

@@ -270,11 +270,9 @@ function mqtt_connect(broker_ip, port) {
         var connectOptions = {
             host: broker_ip,
             port: port,
-//              username: 'keti',
-//              password: 'keti123',
             protocol: "mqtt",
             keepalive: 10,
-//              clientId: serverUID,
+            // clientId: serverUID,
             protocolId: "MQTT",
             protocolVersion: 4,
             clean: true,
@@ -294,12 +292,4 @@ function mqtt_connect(broker_ip, port) {
             console.log('[mqtt_client error] ' + err.message);
         });
     }
-}
-
-function send_to_Mobius(topic, content_each_obj, gap) {
-    setTimeout(function (topic, content_each_obj) {
-        sh_adn.crtci(topic + '?rcn=0', 0, content_each_obj, null, function () {
-
-        });
-    }, gap, topic, content_each_obj);
 }
