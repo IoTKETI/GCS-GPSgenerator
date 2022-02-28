@@ -46,6 +46,9 @@ function gpsPortOpen() {
     gps = new GPS();
 
     parser = gpsPort.pipe(new SerialPortParser());
+    parser.on("data", data => {
+        gps.update(data);
+    });
     console.log('gpsPort open. ' + gpsPortNum + ' Data rate: ' + gpsBaudrate);
 }
 
@@ -78,9 +81,9 @@ function gpsPortData(data) {
     }
 }
 
-parser.on("data", data => {
-    gps.update(data);
-});
+// parser.on("data", data => {
+//     gps.update(data);
+// });
 
 setInterval(function () {
     boot_time = moment().valueOf() - boot_start_time;
