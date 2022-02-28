@@ -78,7 +78,13 @@ function gpsPortData(data) {
         if (data.quality != null) {
             // console.log(data.lat,",", data.lon);
             setTimeout(createMAVLinkData, 1, my_system_id, boot_time, data);
-
+        }
+        else {
+            data.lat = 0;
+            data.lon = 0;
+            data.alt = 0;
+            data.hdop = 0;
+            setTimeout(createMAVLinkData, 1, my_system_id, boot_time, data);
         }
     }
 }
