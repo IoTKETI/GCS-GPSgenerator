@@ -5,21 +5,75 @@ const Request = require("request-promise");
 const mavlink = require('./mavlink.js');
 const moment = require('moment');
 
+let gpsPort = null;
 let gpsPortNum = 'COM15';
-let gpsBaudrate = '9600';
-const port = new SerialPort(gpsPortNum, { baudRate: parseInt(gpsBaudrate, 10) });
-console.log('gpsPort open. ' + gpsPortNum + ' Data rate: ' + gpsBaudrate);
+let gpsBaudrate = '115200';
 
-const gps = new GPS();
-
-const parser = port.pipe(new SerialPortParser());
+let gps = null;
+let parser = null;
 
 let globalpositionint_msg = '';
 let gpsrawint_msg = '';
 let heartbeat_msg = '';
 
-gps.on("data", data => {
-    console.log('gps', data);
+
+exports.ready = function gps_ready() {
+    gpsPortNum = 'COM16';
+    gpsBaudrate = '9600';
+    gpsPortOpening();
+}
+
+function gpsPortOpening() {
+    if (gpsPort == null) {
+        gpsPort = new SerialPort(gpsPortNum, {
+            baudRate: parseInt(gpsBaudrate, 10),
+        });
+
+        gpsPort.on('open', gpsPortOpen);
+        gpsPort.on('close', gpsPortClose);
+        gpsPort.on('error', gpsPortError);
+        gpsPort.on('data', gpsPortData);
+    } else {
+        if (gpsPort.isOpen) {
+
+        } else {
+            gpsPort.open();
+        }
+    }
+}
+
+function gpsPortOpen() {
+    gps = new GPS();
+
+    parser = gpsPort.pipe(new SerialPortParser());
+
+    console.log('gpsPort open. ' + gpsPortNum + ' Data rate: ' + gpsBaudrate);
+}
+
+function gpsPortClose() {
+    console.log('gpsPort closed.');
+
+    setTimeout(gpsPortOpening, 2000);
+}
+
+function gpsPortError(error) {
+    var error_str = error.toString();
+    console.log('[gpsPort error]: ' + error.message);
+    if (error_str.substring(0, 14) == "Error: Opening") {
+
+    } else {
+        console.log('gpsPort error : ' + error);
+    }
+
+    setTimeout(gpsPortOpening, 2000);
+}
+
+function gpsPortData(data) {
+    parser.on("data", data => {
+        gps.update(data);
+    });
+
+    console.log(data);
     if (data.type == 'GGA') {
         if (data.quality != null) {
             // console.log(data.lat,",", data.lon);
@@ -27,12 +81,11 @@ gps.on("data", data => {
 
         }
     }
-});
+}
 
-parser.on("data", data => {
-    console.log('parser', data)
-    gps.update(data);
-});
+// parser.on("data", data => {
+//     gps.update(data);
+// });
 
 setInterval(function () {
     boot_time = moment().valueOf() - boot_start_time;

@@ -7,7 +7,7 @@ var shortid = require('shortid');
 const moment = require('moment');
 
 global.sh_adn = require('./http_adn');
-// let gpsapp = require('./gcsapp');
+let gpsapp = require('./gcsapp');
 
 global.my_control_type = '';
 global.my_rc_name = '';
@@ -253,7 +253,7 @@ function http_watchdog() {
                     return_count = 0;
 
                     mqtt_connect(conf.cse.host, conf.cse.mqttport)
-                    require('./gcsapp');
+                    gpsapp.ready();
 
                     setTimeout(http_watchdog, normal_interval);
                 }
