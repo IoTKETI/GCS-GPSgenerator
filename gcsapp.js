@@ -5,7 +5,7 @@ const Request = require("request-promise");
 const mavlink = require('./mavlink.js');
 const moment = require('moment');
 
-const port = new SerialPort("COM7", { baudRate: 9600 });
+const port = new SerialPort("COM15", { baudRate: 9600 });
 const gps = new GPS();
 
 const parser = port.pipe(new SerialPortParser());
