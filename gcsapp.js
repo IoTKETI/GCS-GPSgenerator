@@ -6,22 +6,17 @@ const mavlink = require('./mavlink.js');
 const moment = require('moment');
 
 let gpsPort = null;
-let gpsPortNum = 'COM15';
-let gpsBaudrate = '115200';
+let gpsPortNum = 'COM16';
+let gpsBaudrate = '9600';
+gpsPortOpening();
 
-let gps = null;
-let parser = null;
+const gps = new GPS();
+
+const parser = gpsPort.pipe(new SerialPortParser());
 
 let globalpositionint_msg = '';
 let gpsrawint_msg = '';
 let heartbeat_msg = '';
-
-
-exports.ready = function gps_ready() {
-    gpsPortNum = 'COM16';
-    gpsBaudrate = '9600';
-    gpsPortOpening();
-}
 
 function gpsPortOpening() {
     if (gpsPort == null) {
@@ -32,7 +27,7 @@ function gpsPortOpening() {
         gpsPort.on('open', gpsPortOpen);
         gpsPort.on('close', gpsPortClose);
         gpsPort.on('error', gpsPortError);
-        gpsPort.on('data', gpsPortData);
+        // gpsPort.on('data', gpsPortData);
     } else {
         if (gpsPort.isOpen) {
 
@@ -43,10 +38,6 @@ function gpsPortOpening() {
 }
 
 function gpsPortOpen() {
-    gps = new GPS();
-
-    parser = gpsPort.pipe(new SerialPortParser());
-
     console.log('gpsPort open. ' + gpsPortNum + ' Data rate: ' + gpsBaudrate);
 }
 
@@ -68,30 +59,27 @@ function gpsPortError(error) {
     setTimeout(gpsPortOpening, 2000);
 }
 
-function gpsPortData(data) {
-    parser.on("data", data => {
-        gps.update(data);
-    });
-
-    console.log(data);
+gps.on("data", data => {
+    // console.log('gps', data);
     if (data.type == 'GGA') {
         if (data.quality != null) {
             // console.log(data.lat,",", data.lon);
             setTimeout(createMAVLinkData, 1, my_system_id, boot_time, data);
-        }
-        else {
+        } else {
             data.lat = 0;
             data.lon = 0;
             data.alt = 0;
             data.hdop = 0;
+            data.satellites = 1;
             setTimeout(createMAVLinkData, 1, my_system_id, boot_time, data);
         }
     }
-}
+});
 
-// parser.on("data", data => {
-//     gps.update(data);
-// });
+parser.on("data", data => {
+    // console.log('parser', data)
+    gps.update(data);
+});
 
 setInterval(function () {
     boot_time = moment().valueOf() - boot_start_time;
@@ -252,16 +240,18 @@ function mavlinkGenerateMessage(src_sys_id, src_comp_id, type, params) {
 
 
 function sendMQTTData() {
-    if (heartbeat_msg !== '') {
-        mqtt_client.publish(my_cnt_name, Buffer.from(heartbeat_msg, 'hex'));
-    }
+    if (mqtt_client !== null) { 
+        if (heartbeat_msg !== '') {
+            mqtt_client.publish(my_cnt_name, Buffer.from(heartbeat_msg, 'hex'));
+        }
 
-    if (globalpositionint_msg !== '') {
-        mqtt_client.publish(my_cnt_name, Buffer.from(globalpositionint_msg, 'hex'));
-    }
+        if (globalpositionint_msg !== '') {
+            mqtt_client.publish(my_cnt_name, Buffer.from(globalpositionint_msg, 'hex'));
+        }
 
-    if (gpsrawint_msg !== '') {
-        mqtt_client.publish(my_cnt_name, Buffer.from(gpsrawint_msg, 'hex'));
+        if (gpsrawint_msg !== '') {
+            mqtt_client.publish(my_cnt_name, Buffer.from(gpsrawint_msg, 'hex'));
+        }
     }
 }
 
