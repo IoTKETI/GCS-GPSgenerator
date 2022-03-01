@@ -67,7 +67,6 @@ function gpsPortError(error) {
 }
 
 gps.on("data", data => {
-    // console.log('gps', data);
     if (data.type === 'GGA') {
         if (data.quality != null) {
             mavData.lat = data.lat;
@@ -145,8 +144,6 @@ parser.on("data", data => {
 setInterval(function () {
     boot_time = moment().valueOf() - boot_start_time;
 }, 1);
-
-// setInterval(sendMQTTData, 500);
 
 function createMAVLinkData(sys_id, boot_time, mavdata) {
     // #33, GLOBAL_POSITION_INT
@@ -251,16 +248,6 @@ function mavlinkGenerateMessage(src_sys_id, src_comp_id, type, params) {
                     params.hdg_acc
                 );
                 break;
-            // case mavlink.MAVLINK_MSG_ID_GPS_STATUS:
-            //     mavMsg = new mavlink.messages.gps_status(
-            //         params.satellites_visible,
-            //         params.satellite_prn,
-            //         params.satellite_used,
-            //         params.satellite_elevation,
-            //         params.satellite_azimuth,
-            //         params.satellite_snr
-            //     );
-            //     break;
         }
     } catch (e) {
         console.log('MAVLINK EX:' + e);
