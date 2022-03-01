@@ -1,7 +1,6 @@
 const SerialPort = require("serialport");
 const SerialPortParser = require("@serialport/parser-readline");
 const GPS = require("gps");
-const Request = require("request-promise");
 const mavlink = require('./mavlink.js');
 const moment = require('moment');
 
@@ -17,6 +16,20 @@ const parser = gpsPort.pipe(new SerialPortParser());
 let globalpositionint_msg = '';
 let gpsrawint_msg = '';
 let heartbeat_msg = '';
+
+let mavData = {};
+mavData.fix_type = 0;
+mavData.lat = 0;
+mavData.lon = 0;
+mavData.alt = 0;
+mavData.relative_alt = 0;
+mavData.eph = 0;
+mavData.epv = 0;
+mavData.vel = 0;
+mavData.cog = 0;
+mavData.satellites_visible = 0;
+mavData.vx = 0;
+mavData.hdg = 0;
 
 function gpsPortOpening() {
     if (gpsPort == null) {
@@ -48,123 +61,64 @@ function gpsPortClose() {
 }
 
 function gpsPortError(error) {
-    var error_str = error.toString();
     console.log('[gpsPort error]: ' + error.message);
-    if (error_str.substring(0, 14) == "Error: Opening") {
-
-    } else {
-        console.log('gpsPort error : ' + error);
-    }
 
     setTimeout(gpsPortOpening, 2000);
 }
 
 gps.on("data", data => {
     // console.log('gps', data);
-    if (data.type == 'GGA') {
+    if (data.type === 'GGA') {
         if (data.quality != null) {
-            // console.log(data.lat,",", data.lon);
-            setTimeout(createMAVLinkData, 1, my_system_id, boot_time, data);
+            mavData.lat = data.lat;
+            mavData.lon = data.lon;
+            mavData.alt = data.alt;
+            mavData.satellites_visible = data.satellites;
+            mavData.eph = data.hdop;
+            if (data.quality === 2) {
+                mavData.fix_type = 4;
+            }
         } else {
-            data.lat = 0;
-            data.lon = 0;
-            data.alt = 0;
-            data.hdop = 0;
-            data.satellites = 1;
-            setTimeout(createMAVLinkData, 1, my_system_id, boot_time, data);
+            mavData.lat = 0;
+            mavData.lon = 0;
+            mavData.alt = 0;
+            mavData.relative_alt = 0;
+            mavData.eph = 0;
+            mavData.satellites_visible = 0;
+            mavData.fix_type = 1
         }
+        setTimeout(createMAVLinkData, 1, my_system_id, boot_time, mavData);
+    } else if (data.type === 'GSA') {
+        if (mavData.fix_type !== 4) {
+            if (data.fix === '3D') {
+                mavData.fix_type = 3;
+            } else if (data.fix === '2D') {
+                mavData.fix_type = 2;
+            } else {
+                mavData.fix_type = 1;
+            }
+        }
+        mavData.eph = data.hdop;
+        mavData.epv = data.vdop;
+        setTimeout(createMAVLinkData, 1, my_system_id, boot_time, mavData);
+    } else if (data.type === 'RMC') {
+        mavData.vx = data.speed / 1.944;
+        mavData.vel = data.speed / 1.944;
+        mavData.cog = data.track;
+        setTimeout(createMAVLinkData, 1, my_system_id, boot_time, mavData);
+    } else if (data.type === 'VTG') {
+        mavData.vx = data.speed / 1.944;
+        mavData.vel = data.speed / 1.944;
+        mavData.hdg = data.trackMagnetic;
+        setTimeout(createMAVLinkData, 1, my_system_id, boot_time, mavData);
     }
-});
-
-parser.on("data", data => {
-    // console.log('parser', data)
-    gps.update(data);
-});
-
-setInterval(function () {
-    boot_time = moment().valueOf() - boot_start_time;
-}, 1);
-
-setInterval(sendMQTTData, 500);
-
-function createMAVLinkData(sys_id, boot_time, data) {
+    // #0, HEARTBEAT
     let params = {}
-    params.target_system = sys_id;
+    params.target_system = my_system_id;
     params.target_component = 1;
-    params.time_boot_ms = boot_time;
-    params.lat = parseFloat(data.lat) * 1E7;
-    params.lon = parseFloat(data.lon) * 1E7;
-    params.alt = parseFloat(data.alt) * 1000;
-    params.relative_alt = 0;
-    params.vx = 0;
-    params.vy = 0;
-    params.vz = 0;
-    params.hdg = 0;
-
-    try {
-        globalpositionint_msg = mavlinkGenerateMessage(params.target_system, params.target_component, mavlink.MAVLINK_MSG_ID_GLOBAL_POSITION_INT, params);
-        if (globalpositionint_msg == null) {
-            console.log("mavlink message(MAVLINK_MSG_ID_GLOBAL_POSITION_INT) is null");
-        } else {
-            // console.log(globalpositionint_msg)
-        }
-    } catch (ex) {
-        console.log('[ERROR] ' + ex);
-    }
-    send_aggr_to_Mobius(my_cnt_name, globalpositionint_msg.toString('hex'), 1000);
-
-    params = {}
-    params.target_system = sys_id;
-    params.target_component = 1;
-    params.time_usec = boot_time;
-    params.fix_type = 3;
-    params.lat = parseFloat(data.lat) * 1E7;
-    params.lon = parseFloat(data.lon) * 1E7;
-    params.alt = parseFloat(data.alt) * 1000;
-    params.eph = parseFloat(data.hdop) * 100;
-    params.epv = 0;
-    params.vel = 0;
-    params.cog = 0;
-    params.satellites_visible = data.satellites;
-
-    try {
-        gpsrawint_msg = mavlinkGenerateMessage(params.target_system, params.target_component, mavlink.MAVLINK_MSG_ID_GPS_RAW_INT, params);
-        if (gpsrawint_msg == null) {
-            console.log("mavlink message(MAVLINK_MSG_ID_GPS_RAW_INT) is null");
-        } else {
-            // console.log(gpsrawint_msg)
-        }
-    } catch (ex) {
-        console.log('[ERROR] ' + ex);
-    }
-    send_aggr_to_Mobius(my_cnt_name, gpsrawint_msg.toString('hex'), 1000);
-
-    // params = {}
-    // params.target_system = sys_id;
-    // params.target_component = 1;
-    // params.time_usec = boot_time;
-    // params.seq = 0;
-    // params.target_system = 0;
-    // params.target_component = 0;
-
-    // try {
-    //     let msg = mavlinkGenerateMessage(params.target_system, params.target_component, mavlink.MAVLINK_MSG_ID_PING, params);
-    //     if (msg == null) {
-    //       console.log("mavlink message(MAVLINK_MSG_ID_PING) is null");
-    //     } else {
-    //         console.log(msg)
-    //            mqtt_client.publish(my_cnt_name, Buffer.from(msg, 'hex'));
-    //     }
-    // } catch (ex) {
-    //     console.log('[ERROR] ' + ex);
-    // }
-
-    params = {}
-    params.target_system = sys_id;
-    params.target_component = 1;
-    params.type = sys_id;
+    params.type = 6;
     params.autopilot = 8; // MAV_AUTOPILOT_INVALID
-    params.base_mode = 0x20;
+    params.base_mode = 128;
     params.custom_mode = 0;
     params.system_status = 3;
     params.mavlink_version = 1;
@@ -177,9 +131,78 @@ function createMAVLinkData(sys_id, boot_time, data) {
             // console.log(heartbeat_msg)
         }
     } catch (ex) {
-        console.log('[ERROR] ' + ex);
+        console.log('[ERROR (HEARTBEAT)] ' + ex);
     }
     send_aggr_to_Mobius(my_cnt_name, heartbeat_msg.toString('hex'), 1000);
+    mqtt_client.publish(my_cnt_name, Buffer.from(heartbeat_msg, 'hex'));
+});
+
+parser.on("data", data => {
+    // console.log('parser', data)
+    gps.update(data);
+});
+
+setInterval(function () {
+    boot_time = moment().valueOf() - boot_start_time;
+}, 1);
+
+// setInterval(sendMQTTData, 500);
+
+function createMAVLinkData(sys_id, boot_time, mavdata) {
+    // #33, GLOBAL_POSITION_INT
+    let params = {}
+    params.target_system = sys_id;
+    params.target_component = 1;
+    params.time_boot_ms = boot_time;
+    params.lat = parseFloat(mavdata.lat) * 1E7;
+    params.lon = parseFloat(mavdata.lon) * 1E7;
+    params.alt = parseFloat(mavdata.alt) * 1000;
+    params.relative_alt = 0;
+    params.vx = mavdata.vx;
+    params.vy = 0;
+    params.vz = 0;
+    params.hdg = mavdata.hdg;
+
+    try {
+        globalpositionint_msg = mavlinkGenerateMessage(params.target_system, params.target_component, mavlink.MAVLINK_MSG_ID_GLOBAL_POSITION_INT, params);
+        if (globalpositionint_msg == null) {
+            console.log("mavlink message(MAVLINK_MSG_ID_GLOBAL_POSITION_INT) is null");
+        } else {
+            // console.log(globalpositionint_msg)
+        }
+    } catch (ex) {
+        console.log('[ERROR (GLOBAL_POSITION_INT)] ' + ex);
+    }
+    send_aggr_to_Mobius(my_cnt_name, globalpositionint_msg.toString('hex'), 1000);
+    mqtt_client.publish(my_cnt_name, Buffer.from(globalpositionint_msg, 'hex'));
+
+    // #24, GPS_RAW_INT
+    params = {}
+    params.target_system = sys_id;
+    params.target_component = 1;
+    params.time_usec = boot_time;
+    params.fix_type = mavdata.fix_type;
+    params.lat = parseFloat(mavdata.lat) * 1E7;
+    params.lon = parseFloat(mavdata.lon) * 1E7;
+    params.alt = parseFloat(mavdata.alt) * 1000;
+    params.eph = parseFloat(mavdata.eph) * 100;
+    params.epv = parseFloat(mavdata.epv) * 100;
+    params.vel = mavdata.vel;
+    params.cog = mavdata.cog;
+    params.satellites_visible = mavdata.satellites_visible;
+
+    try {
+        gpsrawint_msg = mavlinkGenerateMessage(params.target_system, params.target_component, mavlink.MAVLINK_MSG_ID_GPS_RAW_INT, params);
+        if (gpsrawint_msg == null) {
+            console.log("mavlink message(MAVLINK_MSG_ID_GPS_RAW_INT) is null");
+        } else {
+            // console.log(gpsrawint_msg)
+        }
+    } catch (ex) {
+        console.log('[ERROR (GPS_RAW_INT)] ' + ex);
+    }
+    send_aggr_to_Mobius(my_cnt_name, gpsrawint_msg.toString('hex'), 1000);
+    mqtt_client.publish(my_cnt_name, Buffer.from(gpsrawint_msg, 'hex'));
 }
 
 function mavlinkGenerateMessage(src_sys_id, src_comp_id, type, params) {
@@ -195,7 +218,8 @@ function mavlinkGenerateMessage(src_sys_id, src_comp_id, type, params) {
                     params.base_mode,
                     params.custom_mode,
                     params.system_status,
-                    params.mavlink_version);
+                    params.mavlink_version
+                );
                 break;
             case mavlink.MAVLINK_MSG_ID_GLOBAL_POSITION_INT:
                 mavMsg = new mavlink.messages.global_position_int(params.time_boot_ms,
@@ -206,7 +230,8 @@ function mavlinkGenerateMessage(src_sys_id, src_comp_id, type, params) {
                     params.vx,
                     params.vy,
                     params.vz,
-                    params.hdg);
+                    params.hdg
+                );
                 break;
             case mavlink.MAVLINK_MSG_ID_GPS_RAW_INT:
                 mavMsg = new mavlink.messages.gps_raw_int(params.time_usec,
@@ -223,8 +248,19 @@ function mavlinkGenerateMessage(src_sys_id, src_comp_id, type, params) {
                     params.h_acc,
                     params.v_acc,
                     params.vel_acc,
-                    params.hdg_acc);
+                    params.hdg_acc
+                );
                 break;
+            // case mavlink.MAVLINK_MSG_ID_GPS_STATUS:
+            //     mavMsg = new mavlink.messages.gps_status(
+            //         params.satellites_visible,
+            //         params.satellite_prn,
+            //         params.satellite_used,
+            //         params.satellite_elevation,
+            //         params.satellite_azimuth,
+            //         params.satellite_snr
+            //     );
+            //     break;
         }
     } catch (e) {
         console.log('MAVLINK EX:' + e);
@@ -236,23 +272,6 @@ function mavlinkGenerateMessage(src_sys_id, src_comp_id, type, params) {
     }
 
     return genMsg;
-}
-
-
-function sendMQTTData() {
-    if (mqtt_client !== null) { 
-        if (heartbeat_msg !== '') {
-            mqtt_client.publish(my_cnt_name, Buffer.from(heartbeat_msg, 'hex'));
-        }
-
-        if (globalpositionint_msg !== '') {
-            mqtt_client.publish(my_cnt_name, Buffer.from(globalpositionint_msg, 'hex'));
-        }
-
-        if (gpsrawint_msg !== '') {
-            mqtt_client.publish(my_cnt_name, Buffer.from(gpsrawint_msg, 'hex'));
-        }
-    }
 }
 
 var aggr_content = {};

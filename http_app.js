@@ -7,12 +7,11 @@ var shortid = require('shortid');
 const moment = require('moment');
 
 global.sh_adn = require('./http_adn');
-// let gpsapp = require('./gcsapp');
 
 global.my_control_type = '';
 global.my_rc_name = '';
 global.my_gcs_t_cnt_name = '';
-global.my_cnt_nname = '';
+global.my_cnt_name = '';
 global.my_parename = '';
 global.pre_my_cnt_name = '';
 global.my_sortie_name = 'disarm';
