@@ -9,7 +9,7 @@ conf.useprotocol = 'http'; // select one for 'http' or 'mqtt' or 'coap' or 'ws'
 // build cse
 
 var approval_host = {}
-approval_host.ip = '203.253.128.177';
+approval_host.ip = 'gcs.iotocean.org';  // '203.253.128.177';
 
 cse.host        = approval_host.ip;
 cse.port        = '7579';
