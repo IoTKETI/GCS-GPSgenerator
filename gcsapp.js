@@ -1,17 +1,18 @@
-const SerialPort = require("serialport");
-const SerialPortParser = require("@serialport/parser-readline");
-const GPS = require("gps");
-const mavlink = require('./mavlink.js');
 const moment = require('moment');
+const {SerialPort} = require("serialport");
+const {ReadlineParser} = require("@serialport/parser-readline");
+const GPS = require("gps");
+
+const mavlink = require('./mavlink.js');
 
 let gpsPort = null;
-let gpsPortNum = 'COM16';
+let gpsPortNum = 'COM5';
 let gpsBaudrate = '9600';
 gpsPortOpening();
 
 const gps = new GPS();
 
-const parser = gpsPort.pipe(new SerialPortParser());
+const parser = gpsPort.pipe(new ReadlineParser());
 
 let globalpositionint_msg = '';
 let gpsrawint_msg = '';
@@ -33,7 +34,8 @@ mavData.hdg = 0;
 
 function gpsPortOpening() {
     if (gpsPort == null) {
-        gpsPort = new SerialPort(gpsPortNum, {
+        gpsPort = new SerialPort({
+            path: gpsPortNum,
             baudRate: parseInt(gpsBaudrate, 10),
         });
 
@@ -51,7 +53,7 @@ function gpsPortOpening() {
 }
 
 function gpsPortOpen() {
-    console.log('gpsPort open. ' + gpsPortNum + ' Data rate: ' + gpsBaudrate);
+    console.log('gpsPort ' + gpsPort.path + ' Data rate: ' + gpsPort.baudRate + ' open.');
 }
 
 function gpsPortClose() {

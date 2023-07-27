@@ -277,7 +277,8 @@ function mqtt_connect(broker_ip, port) {
             protocolVersion: 4,
             clean: true,
             reconnectPeriod: 2000,
-            connectTimeout: 2000,
+            connectTimeout: 30000,
+            queueQoSZero: false,
             rejectUnauthorized: false
         };
 
