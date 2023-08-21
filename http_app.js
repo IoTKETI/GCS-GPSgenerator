@@ -1,8 +1,4 @@
-var http = require('http');
-var fs = require('fs');
 var mqtt = require('mqtt');
-var util = require('util');
-var url = require('url');
 var shortid = require('shortid');
 const moment = require('moment');
 
@@ -26,21 +22,26 @@ global.getType = function (p) {
     var type = 'string';
     if (Array.isArray(p)) {
         type = 'array';
-    } else if (typeof p === 'string') {
+    }
+    else if (typeof p === 'string') {
         try {
             var _p = JSON.parse(p);
             if (typeof _p === 'object') {
                 type = 'string_object';
-            } else {
+            }
+            else {
                 type = 'string';
             }
-        } catch (e) {
+        }
+        catch (e) {
             type = 'string';
             return type;
         }
-    } else if (p != null && typeof p === 'object') {
+    }
+    else if (p != null && typeof p === 'object') {
         type = 'object';
-    } else {
+    }
+    else {
         type = 'other';
     }
 
@@ -61,7 +62,8 @@ function ae_response_action(status, res_body, callback) {
 function create_cnt_all(count, callback) {
     if (conf.cnt.length == 0) {
         callback(2001, count);
-    } else {
+    }
+    else {
         if (conf.cnt.hasOwnProperty(count)) {
             var parent = conf.cnt[count].parent;
             var rn = conf.cnt[count].name;
@@ -70,11 +72,13 @@ function create_cnt_all(count, callback) {
                     create_cnt_all(++count, function (status, count) {
                         callback(status, count);
                     });
-                } else {
+                }
+                else {
                     callback(9999, count);
                 }
             });
-        } else {
+        }
+        else {
             callback(2001, count);
         }
     }
@@ -83,7 +87,8 @@ function create_cnt_all(count, callback) {
 function delete_sub_all(count, callback) {
     if (conf.sub.length == 0) {
         callback(2001, count);
-    } else {
+    }
+    else {
         if (conf.sub.hasOwnProperty(count)) {
             var target = conf.sub[count].parent + '/' + conf.sub[count].name;
             sh_adn.delsub(target, count, function (rsc, res_body, count) {
@@ -91,11 +96,13 @@ function delete_sub_all(count, callback) {
                     delete_sub_all(++count, function (status, count) {
                         callback(status, count);
                     });
-                } else {
+                }
+                else {
                     callback(9999, count);
                 }
             });
-        } else {
+        }
+        else {
             callback(2001, count);
         }
     }
@@ -104,7 +111,8 @@ function delete_sub_all(count, callback) {
 function create_sub_all(count, callback) {
     if (conf.sub.length == 0) {
         callback(2001, count);
-    } else {
+    }
+    else {
         if (conf.sub.hasOwnProperty(count)) {
             var parent = conf.sub[count].parent;
             var rn = conf.sub[count].name;
@@ -114,11 +122,13 @@ function create_sub_all(count, callback) {
                     create_sub_all(++count, function (status, count) {
                         callback(status, count);
                     });
-                } else {
+                }
+                else {
                     callback('9999', count);
                 }
             });
-        } else {
+        }
+        else {
             callback(2001, count);
         }
     }
@@ -138,13 +148,15 @@ function retrieve_my_cnt_name(callback) {
 
             if (drone_info.hasOwnProperty('gcs')) {
                 my_gcs_name = drone_info.gcs;
-            } else {
+            }
+            else {
                 my_gcs_name = 'KETI_MUV';
             }
 
             if (drone_info.hasOwnProperty('host')) {
                 conf.cse.host = drone_info.host;
-            } else {
+            }
+            else {
             }
 
             console.log("gcs host is " + conf.cse.host);
@@ -168,7 +180,8 @@ function retrieve_my_cnt_name(callback) {
 
             if (drone_info.hasOwnProperty('system_id')) {
                 my_system_id = drone_info.system_id;
-            } else {
+            }
+            else {
                 my_system_id = 1;
             }
 
@@ -176,7 +189,8 @@ function retrieve_my_cnt_name(callback) {
             sh_state = 'crtae';
             setTimeout(http_watchdog, normal_interval);
             callback();
-        } else {
+        }
+        else {
             console.log('x-m2m-rsc : ' + rsc + ' <----' + res_body);
             setTimeout(http_watchdog, retry_interval);
             callback();
@@ -189,7 +203,8 @@ function http_watchdog() {
         retrieve_my_cnt_name(function () {
 
         });
-    } else if (sh_state === 'crtae') {
+    }
+    else if (sh_state === 'crtae') {
         console.log('[sh_state] : ' + sh_state);
         sh_adn.crtae(conf.ae.parent, conf.ae.name, conf.ae.appid, function (status, res_body) {
             console.log(res_body);
@@ -202,17 +217,20 @@ function http_watchdog() {
 
                     setTimeout(http_watchdog, normal_interval);
                 });
-            } else if (status == 5106 || status == 4105) {
+            }
+            else if (status == 5106 || status == 4105) {
                 console.log('x-m2m-rsc : ' + status + ' <----');
                 sh_state = 'rtvae';
 
                 setTimeout(http_watchdog, normal_interval);
-            } else {
+            }
+            else {
                 console.log('x-m2m-rsc : ' + status + ' <----');
                 setTimeout(http_watchdog, retry_interval);
             }
         });
-    } else if (sh_state === 'rtvae') {
+    }
+    else if (sh_state === 'rtvae') {
         if (conf.ae.id === 'S') {
             conf.ae.id = 'S' + shortid.generate();
         }
@@ -225,24 +243,28 @@ function http_watchdog() {
 
                 if (conf.ae.id != aeid && conf.ae.id != ('/' + aeid)) {
                     console.log('AE-ID created is ' + aeid + ' not equal to device AE-ID is ' + conf.ae.id);
-                } else {
+                }
+                else {
                     sh_state = 'crtct';
                     request_count = 0;
                     return_count = 0;
 
                     setTimeout(http_watchdog, normal_interval);
                 }
-            } else {
+            }
+            else {
                 console.log('x-m2m-rsc : ' + status + ' <----');
                 setTimeout(http_watchdog, retry_interval);
             }
         });
-    } else if (sh_state === 'crtct') {
+    }
+    else if (sh_state === 'crtct') {
         console.log('[sh_state] : ' + sh_state);
         create_cnt_all(request_count, function (status, count) {
             if (status == 9999) {
                 setTimeout(http_watchdog, retry_interval);
-            } else {
+            }
+            else {
                 request_count = ++count;
                 return_count = 0;
                 if (conf.cnt.length <= count) {
@@ -258,7 +280,8 @@ function http_watchdog() {
                 }
             }
         });
-    } else if (sh_state === 'crtci') {
+    }
+    else if (sh_state === 'crtci') {
         //setTimeout(check_rtv_cnt, 10000);
     }
 }

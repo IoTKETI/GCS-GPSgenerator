@@ -19,19 +19,24 @@ cse.mqttport    = '1883';
 cse.wsport      = '7577';
 
 // build ae
-var ae_name = {};
+var drone_info = {};
 try {
-    ae_name = JSON.parse(fs.readFileSync('gcsInfo.json', 'utf8'));
+    drone_info = JSON.parse(fs.readFileSync('../drone_info.json', 'utf8'));
 }
 catch (e) {
-    console.log('can not find gcsInfo.json file');
-    ae_name.approval_gcs = 'MUV';
-    ae_name.flight = 'Dione';
-    fs.writeFileSync('gcsInfo.json', JSON.stringify(ae_name, null, 4), 'utf8');
+    console.log('can not find [ ../drone_info.json ] file');
+    drone_info.id = "Dione";
+    drone_info.approval_gcs = "MUV";
+    drone_info.host = "gcs.iotocean.org";
+    drone_info.drone = "Drone1";
+    drone_info.gcs = "KETI_GCS";
+    drone_info.type = "ardupilot";
+    drone_info.system_id = 1;
+    drone_info.gcs_ip = "192.168.1.150";
 }
 
-ae.approval_gcs          = ae_name.approval_gcs;
-ae.name         = ae_name.flight;
+ae.approval_gcs          = drone_info.approval_gcs;
+ae.name         = drone_info.id;
 
 ae.id           = 'S'+ae.name;
 
