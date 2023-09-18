@@ -15,6 +15,7 @@ global.my_cnt_name = '';
 global.my_parename = '';
 global.pre_my_cnt_name = '';
 global.my_sortie_name = 'disarm';
+global.gcs_gpi_topic = '';
 
 global.my_system_id = 1;
 global.boot_start_time = moment().valueOf();
@@ -172,6 +173,7 @@ function retrieve_my_cnt_name(callback) {
                 my_system_id = 1;
             }
 
+            gcs_gpi_topic = '/Mobius/' + drone_info.gcs + '/Gcs_Gpi_Data/' + drone_info.drone;
 
             sh_state = 'crtae';
             setTimeout(http_watchdog, normal_interval);
@@ -266,7 +268,7 @@ function http_watchdog() {
 setTimeout(http_watchdog, normal_interval);
 
 function mqtt_connect(broker_ip, port) {
-    if (mqtt_client == null) {
+    if (!mobius_mqtt_client) {
         var connectOptions = {
             host: broker_ip,
             port: port,
@@ -282,14 +284,14 @@ function mqtt_connect(broker_ip, port) {
         };
 
 
-        mqtt_client = mqtt.connect(connectOptions);
+        mobius_mqtt_client = mqtt.connect(connectOptions);
 
-        mqtt_client.on('connect', function () {
+        mobius_mqtt_client.on('connect', function () {
             console.log('mqtt connected to ' + broker_ip);
         });
 
-        mqtt_client.on('error', function (err) {
-            console.log('[mqtt_client error] ' + err.message);
+        mobius_mqtt_client.on('error', function (err) {
+            console.log('[mobius_mqtt_client error] ' + err.message);
         });
     }
 }

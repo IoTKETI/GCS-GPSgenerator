@@ -32,7 +32,7 @@ mavData.vx = 0;
 mavData.hdg = 0;
 
 function gpsPortOpening() {
-    if (gpsPort == null) {
+    if (!gpsPort) {
         gpsPort = new SerialPort(gpsPortNum, {
             baudRate: parseInt(gpsBaudrate, 10),
         });
@@ -41,10 +41,14 @@ function gpsPortOpening() {
         gpsPort.on('close', gpsPortClose);
         gpsPort.on('error', gpsPortError);
         // gpsPort.on('data', gpsPortData);
-    } else {
+    }
+    else {
         if (gpsPort.isOpen) {
-
-        } else {
+            gpsPort.close();
+            gpsPort = null;
+            setTimeout(gpsPortOpening, 2000);
+        }
+        else {
             gpsPort.open();
         }
     }
@@ -68,7 +72,7 @@ function gpsPortError(error) {
 
 gps.on("data", data => {
     if (data.type === 'GGA') {
-        if (data.quality != null) {
+        if (data.quality) {
             mavData.lat = data.lat;
             mavData.lon = data.lon;
             mavData.alt = data.alt;
@@ -77,7 +81,8 @@ gps.on("data", data => {
             if (data.quality === 2) {
                 mavData.fix_type = 4;
             }
-        } else {
+        }
+        else {
             mavData.lat = 0;
             mavData.lon = 0;
             mavData.alt = 0;
@@ -86,26 +91,37 @@ gps.on("data", data => {
             mavData.satellites_visible = 0;
             mavData.fix_type = 1
         }
+
+        if (mobius_mqtt_client) {
+            mobius_mqtt_client.publish(gcs_gpi_topic, JSON.stringify({lat: gcs_lat, lon: gcs_lon}), () => {
+                console.log('Send GCS location(' + mavData.lat + ':' + mavData.lon + ') to ' + gcs_gpi_topic);
+            });
+        }
         setTimeout(createMAVLinkData, 1, my_system_id, boot_time, mavData);
-    } else if (data.type === 'GSA') {
+    }
+    else if (data.type === 'GSA') {
         if (mavData.fix_type !== 4) {
             if (data.fix === '3D') {
                 mavData.fix_type = 3;
-            } else if (data.fix === '2D') {
+            }
+            else if (data.fix === '2D') {
                 mavData.fix_type = 2;
-            } else {
+            }
+            else {
                 mavData.fix_type = 1;
             }
         }
         mavData.eph = data.hdop;
         mavData.epv = data.vdop;
         setTimeout(createMAVLinkData, 1, my_system_id, boot_time, mavData);
-    } else if (data.type === 'RMC') {
+    }
+    else if (data.type === 'RMC') {
         mavData.vx = data.speed / 1.944;
         mavData.vel = data.speed / 1.944;
         mavData.cog = data.track;
         setTimeout(createMAVLinkData, 1, my_system_id, boot_time, mavData);
-    } else if (data.type === 'VTG') {
+    }
+    else if (data.type === 'VTG') {
         mavData.vx = data.speed / 1.944;
         mavData.vel = data.speed / 1.944;
         mavData.hdg = data.trackMagnetic;
@@ -124,16 +140,18 @@ gps.on("data", data => {
 
     try {
         heartbeat_msg = mavlinkGenerateMessage(params.target_system, params.target_component, mavlink.MAVLINK_MSG_ID_HEARTBEAT, params);
-        if (heartbeat_msg == null) {
+        if (!heartbeat_msg) {
             console.log("mavlink message(MAVLINK_MSG_ID_HEARTBEAT) is null");
-        } else {
+        }
+        else {
             // console.log(heartbeat_msg)
         }
-    } catch (ex) {
+    }
+    catch (ex) {
         console.log('[ERROR (HEARTBEAT)] ' + ex);
     }
     send_aggr_to_Mobius(my_cnt_name, heartbeat_msg.toString('hex'), 1000);
-    mqtt_client.publish(my_cnt_name, Buffer.from(heartbeat_msg, 'hex'));
+    mobius_mqtt_client.publish(my_cnt_name, Buffer.from(heartbeat_msg, 'hex'));
 });
 
 parser.on("data", data => {
@@ -162,16 +180,18 @@ function createMAVLinkData(sys_id, boot_time, mavdata) {
 
     try {
         globalpositionint_msg = mavlinkGenerateMessage(params.target_system, params.target_component, mavlink.MAVLINK_MSG_ID_GLOBAL_POSITION_INT, params);
-        if (globalpositionint_msg == null) {
+        if (!globalpositionint_msg) {
             console.log("mavlink message(MAVLINK_MSG_ID_GLOBAL_POSITION_INT) is null");
-        } else {
+        }
+        else {
             // console.log(globalpositionint_msg)
         }
-    } catch (ex) {
+    }
+    catch (ex) {
         console.log('[ERROR (GLOBAL_POSITION_INT)] ' + ex);
     }
     send_aggr_to_Mobius(my_cnt_name, globalpositionint_msg.toString('hex'), 1000);
-    mqtt_client.publish(my_cnt_name, Buffer.from(globalpositionint_msg, 'hex'));
+    mobius_mqtt_client.publish(my_cnt_name, Buffer.from(globalpositionint_msg, 'hex'));
 
     // #24, GPS_RAW_INT
     params = {}
@@ -190,16 +210,18 @@ function createMAVLinkData(sys_id, boot_time, mavdata) {
 
     try {
         gpsrawint_msg = mavlinkGenerateMessage(params.target_system, params.target_component, mavlink.MAVLINK_MSG_ID_GPS_RAW_INT, params);
-        if (gpsrawint_msg == null) {
+        if (!gpsrawint_msg) {
             console.log("mavlink message(MAVLINK_MSG_ID_GPS_RAW_INT) is null");
-        } else {
+        }
+        else {
             // console.log(gpsrawint_msg)
         }
-    } catch (ex) {
+    }
+    catch (ex) {
         console.log('[ERROR (GPS_RAW_INT)] ' + ex);
     }
     send_aggr_to_Mobius(my_cnt_name, gpsrawint_msg.toString('hex'), 1000);
-    mqtt_client.publish(my_cnt_name, Buffer.from(gpsrawint_msg, 'hex'));
+    mobius_mqtt_client.publish(my_cnt_name, Buffer.from(gpsrawint_msg, 'hex'));
 }
 
 function mavlinkGenerateMessage(src_sys_id, src_comp_id, type, params) {
@@ -249,7 +271,8 @@ function mavlinkGenerateMessage(src_sys_id, src_comp_id, type, params) {
                 );
                 break;
         }
-    } catch (e) {
+    }
+    catch (e) {
         console.log('MAVLINK EX:' + e);
     }
 
@@ -261,18 +284,20 @@ function mavlinkGenerateMessage(src_sys_id, src_comp_id, type, params) {
     return genMsg;
 }
 
-var aggr_content = {};
+let aggr_content = {};
 
 function send_aggr_to_Mobius(topic, content_each, gap) {
+    let timestamp;
     if (aggr_content.hasOwnProperty(topic)) {
-        var timestamp = moment().format('YYYY-MM-DDTHH:mm:ssSSS');
+        timestamp = moment().format('YYYY-MM-DDTHH:mm:ssSSS');
         aggr_content[topic][timestamp] = content_each;
-    } else {
+    }
+    else {
         aggr_content[topic] = {};
         timestamp = moment().format('YYYY-MM-DDTHH:mm:ssSSS');
         aggr_content[topic][timestamp] = content_each;
 
-        setTimeout(function () {
+        setTimeout(() => {
             sh_adn.crtci(topic + '?rcn=0', 0, aggr_content[topic], null, function () {
 
             });

@@ -1,14 +1,14 @@
-var fs = require('fs');
+const fs = require('fs');
 
-var conf = {};
-var cse = {};
-var ae = {};
+let conf = {};
+let cse = {};
+let ae = {};
 
 conf.useprotocol = 'http'; // select one for 'http' or 'mqtt' or 'coap' or 'ws'
 
 // build cse
 
-var approval_host = {}
+let approval_host = {}
 approval_host.ip = 'gcs.iotocean.org';  // '203.253.128.177';
 
 cse.host        = approval_host.ip;
@@ -19,7 +19,7 @@ cse.mqttport    = '1883';
 cse.wsport      = '7577';
 
 // build ae
-var ae_name = {};
+let ae_name = {};
 try {
     ae_name = JSON.parse(fs.readFileSync('gcsInfo.json', 'utf8'));
 }
@@ -30,7 +30,7 @@ catch (e) {
     fs.writeFileSync('gcsInfo.json', JSON.stringify(ae_name, null, 4), 'utf8');
 }
 
-ae.approval_gcs          = ae_name.approval_gcs;
+ae.approval_gcs = ae_name.approval_gcs;
 ae.name         = ae_name.flight;
 
 ae.id           = 'S'+ae.name;

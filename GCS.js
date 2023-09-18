@@ -12,7 +12,7 @@ global.conf = require('./conf.js');
 //global.sh_state = 'rtvae';
 global.sh_state = 'rtvct';
 
-global.mqtt_client = null;
+global.mobius_mqtt_client = null;
 
 // AE core
 
