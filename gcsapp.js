@@ -1,17 +1,18 @@
-const SerialPort = require("serialport");
-const SerialPortParser = require("@serialport/parser-readline");
-const GPS = require("gps");
-const mavlink = require('./mavlink.js');
 const moment = require('moment');
+const {SerialPort} = require("serialport");
+const {ReadlineParser} = require("@serialport/parser-readline");
+const GPS = require("gps");
+
+const mavlink = require('./mavlink.js');
 
 let gpsPort = null;
-let gpsPortNum = 'COM16';
+let gpsPortNum = 'COM3';
 let gpsBaudrate = '9600';
 gpsPortOpening();
 
 const gps = new GPS();
 
-const parser = gpsPort.pipe(new SerialPortParser());
+const parser = gpsPort.pipe(new ReadlineParser());
 
 let globalpositionint_msg = '';
 let gpsrawint_msg = '';
@@ -33,7 +34,8 @@ mavData.hdg = 0;
 
 function gpsPortOpening() {
     if (!gpsPort) {
-        gpsPort = new SerialPort(gpsPortNum, {
+        gpsPort = new SerialPort({
+            path: gpsPortNum,
             baudRate: parseInt(gpsBaudrate, 10),
         });
 
@@ -55,7 +57,7 @@ function gpsPortOpening() {
 }
 
 function gpsPortOpen() {
-    console.log('gpsPort open. ' + gpsPortNum + ' Data rate: ' + gpsBaudrate);
+    console.log('gpsPort(' + gpsPort.path + '), gpsPort rate: ' + gpsPort.baudRate + ' open.');
 }
 
 function gpsPortClose() {
@@ -91,7 +93,6 @@ gps.on("data", data => {
             mavData.satellites_visible = 0;
             mavData.fix_type = 1
         }
-
         if (mobius_mqtt_client) {
             mobius_mqtt_client.publish(gcs_gpi_topic, JSON.stringify({lat: gcs_lat, lon: gcs_lon}), () => {
                 console.log('Send GCS location(' + mavData.lat + ':' + mavData.lon + ') to ' + gcs_gpi_topic);
@@ -127,6 +128,14 @@ gps.on("data", data => {
         mavData.hdg = data.trackMagnetic;
         setTimeout(createMAVLinkData, 1, my_system_id, boot_time, mavData);
     }
+});
+
+parser.on("data", data => {
+    // console.log('parser', data)
+    gps.update(data);
+});
+
+setInterval(() => {
     // #0, HEARTBEAT
     let params = {}
     params.target_system = my_system_id;
@@ -144,22 +153,16 @@ gps.on("data", data => {
             console.log("mavlink message(MAVLINK_MSG_ID_HEARTBEAT) is null");
         }
         else {
-            // console.log(heartbeat_msg)
+            send_aggr_to_Mobius(my_cnt_name, heartbeat_msg.toString('hex'), 2000);
+            mobius_mqtt_client.publish(my_cnt_name, Buffer.from(heartbeat_msg, 'hex'));
         }
     }
     catch (ex) {
         console.log('[ERROR (HEARTBEAT)] ' + ex);
     }
-    send_aggr_to_Mobius(my_cnt_name, heartbeat_msg.toString('hex'), 1000);
-    mobius_mqtt_client.publish(my_cnt_name, Buffer.from(heartbeat_msg, 'hex'));
-});
+}, 500);
 
-parser.on("data", data => {
-    // console.log('parser', data)
-    gps.update(data);
-});
-
-setInterval(function () {
+setInterval(() => {
     boot_time = moment().valueOf() - boot_start_time;
 }, 1);
 
@@ -184,14 +187,13 @@ function createMAVLinkData(sys_id, boot_time, mavdata) {
             console.log("mavlink message(MAVLINK_MSG_ID_GLOBAL_POSITION_INT) is null");
         }
         else {
-            // console.log(globalpositionint_msg)
+            mobius_mqtt_client.publish(my_cnt_name, Buffer.from(globalpositionint_msg, 'hex'));
+            send_aggr_to_Mobius(my_cnt_name, globalpositionint_msg.toString('hex'), 2000);
         }
     }
     catch (ex) {
         console.log('[ERROR (GLOBAL_POSITION_INT)] ' + ex);
     }
-    send_aggr_to_Mobius(my_cnt_name, globalpositionint_msg.toString('hex'), 1000);
-    mobius_mqtt_client.publish(my_cnt_name, Buffer.from(globalpositionint_msg, 'hex'));
 
     // #24, GPS_RAW_INT
     params = {}
@@ -214,14 +216,13 @@ function createMAVLinkData(sys_id, boot_time, mavdata) {
             console.log("mavlink message(MAVLINK_MSG_ID_GPS_RAW_INT) is null");
         }
         else {
-            // console.log(gpsrawint_msg)
+            send_aggr_to_Mobius(my_cnt_name, gpsrawint_msg.toString('hex'), 2000);
+            mobius_mqtt_client.publish(my_cnt_name, Buffer.from(gpsrawint_msg, 'hex'));
         }
     }
     catch (ex) {
         console.log('[ERROR (GPS_RAW_INT)] ' + ex);
     }
-    send_aggr_to_Mobius(my_cnt_name, gpsrawint_msg.toString('hex'), 1000);
-    mobius_mqtt_client.publish(my_cnt_name, Buffer.from(gpsrawint_msg, 'hex'));
 }
 
 function mavlinkGenerateMessage(src_sys_id, src_comp_id, type, params) {
